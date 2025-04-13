@@ -13,7 +13,7 @@ module Addition_Subtraction(
 input [31:0] a_operand,b_operand, //Inputs in the format of IEEE-754 Representation.
 input AddBar_Sub,	//If Add_Sub is low then Addition else Subtraction.
 output Exception,
-output [31:0] result //Outputs in the format of IEEE-754 Representation.
+output reg [31:0] result //Outputs in the format of IEEE-754 Representation.
 );
 
 wire operation_sub_addBar;
@@ -36,6 +36,8 @@ wire [24:0] significand_sub;
 wire [30:0] sub_diff;
 wire [24:0] subtraction_diff; 
 wire [7:0] exponent_sub;
+
+wire zero_a, zero_b;
 
 //for operations always operand_a must not be less than b_operand
 assign {Comp_enable,operand_a,operand_b} = (a_operand[30:0] < b_operand[30:0]) ? {1'b1,b_operand,a_operand} : {1'b0,a_operand,b_operand};
@@ -93,9 +95,26 @@ assign sub_diff[22:0] = subtraction_diff[22:0];
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 //-------------------------------------------------OUTPUT--------------------------------------------//
 
-//If there is no exception and operation will evaluate
+assign zero_a = (a_operand == 0);
+assign zero_b = (b_operand == 0);
 
-
-assign result = Exception ? 32'b0 : ((!operation_sub_addBar) ? {output_sign,sub_diff} : {output_sign,add_sum});
+always @ (*) begin
+    if (Exception) begin
+        // If there is exception then set output to 0
+        result = 32'h0;
+    end else if (zero_b) begin
+        // If b_operand is zero then we need to set the result directly to a_operand
+        result = a_operand;
+    end
+    else if (zero_a) begin
+        // If a_operand is zero then we need to set the result either b_operand or -1*b_operand
+        if (~AddBar_Sub) result = b_operand;
+        else result = {~b_operand[31], b_operand[30:0]};
+    end
+    else begin
+        // Else normal operation will evaluate
+        result = (!operation_sub_addBar) ? {output_sign,sub_diff} : {output_sign,add_sum};
+    end
+end
 
 endmodule
